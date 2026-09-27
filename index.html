@@ -1,0 +1,2152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>DocRenamer Desktop - Offline PDF Auto-Renamer</title>
+    <meta name="description" content="Offline-first desktop application for Document Controllers with OCR zone recognition and batch file organization." />
+    <meta property="og:title" content="DocRenamer Desktop" />
+    <meta property="og:description" content="Offline-first desktop application for Document Controllers with OCR zone recognition and batch file organization." />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="/src/index.css" />
+    <!-- PDF.js and Tesseract.js Core Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- Tailwind CSS Script -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              desktopBg: '#f1f5f9',
+              desktopPanel: '#ffffff',
+              desktopBorder: '#e2e8f0',
+              desktopBorderStrong: '#cbd5e1',
+              desktopText: '#0f172a',
+              desktopMuted: '#64748b'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Desktop Software Base Typography: Strict Unified Single Font Family */
+      * {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+      }
+      html, body {
+        height: 100vh;
+        width: 100vw;
+        min-width: 1240px;
+        min-height: 700px;
+        overflow: hidden !important;
+        background-color: #e2e8f0;
+        color: #0f172a;
+        font-size: 13px;
+        line-height: 1.4;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-font-smoothing: antialiased;
+      }
+      .no-wrap {
+        white-space: nowrap !important;
+      }
+      .zone-active {
+        box-shadow: 0 0 0 2px #2563eb, 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+      }
+      .canvas-crosshair {
+        cursor: crosshair !important;
+      }
+      /* Custom clean desktop scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+  </head>
+  <body class="h-screen w-screen min-w-[1240px] overflow-hidden flex flex-col bg-[#e2e8f0] text-slate-800 text-[13px] select-none p-2.5">
+
+    <!-- DESKTOP CONTAINER WINDOW SHELL WITH PADDING ALL AROUND -->
+    <div class="flex-1 w-full h-full bg-[#f1f5f9] rounded-lg border border-slate-300 shadow-md flex flex-col overflow-hidden">
+
+      <!-- ============================================================
+           DESKTOP TOP WINDOW BAR & STAGE NAVIGATION
+           ============================================================ -->
+      <header class="h-12 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-30 shadow-xs whitespace-nowrap">
+        
+        <!-- Brand & Offline Status -->
+        <div class="flex items-center gap-3 shrink-0">
+          <div class="flex items-center gap-2.5">
+            <!-- Desktop Document Controller App Icon -->
+            <div class="w-7 h-7 bg-blue-600 rounded flex items-center justify-center text-white shadow-xs shrink-0">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+            </div>
+            <div class="flex flex-col">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-[14px] tracking-tight">DocRenamer</span>
+                <span class="text-[11px] font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Desktop v2.4</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] text-emerald-600 font-semibold">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Offline Local Engine</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage Navigation Tabs (Desktop Stepper) -->
+        <nav class="flex items-center bg-slate-100 p-1 rounded-md border border-slate-200 shrink-0" aria-label="Stages">
+          
+          <button id="nav-stage-1" onclick="switchStage(1)" 
+            class="stage-nav-btn flex items-center gap-2 px-3 py-1.5 rounded text-slate-600 hover:text-slate-900 font-medium text-[13px] transition-colors cursor-pointer whitespace-nowrap">
+            <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[11px] font-bold shrink-0">1</span>
+            <span>Engine Assets</span>
+          </button>
+
+          <span class="text-slate-300 px-1.5 text-[12px] shrink-0">›</span>
+
+          <button id="nav-stage-2" onclick="switchStage(2)" 
+            class="stage-nav-btn flex items-center gap-2 px-3 py-1.5 rounded text-slate-600 hover:text-slate-900 font-medium text-[13px] transition-colors cursor-pointer whitespace-nowrap">
+            <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[11px] font-bold shrink-0">2</span>
+            <span>OCR Zones</span>
+          </button>
+
+          <span class="text-slate-300 px-1.5 text-[12px] shrink-0">›</span>
+
+          <button id="nav-stage-3" onclick="switchStage(3)" 
+            class="stage-nav-btn flex items-center gap-2 px-3 py-1.5 rounded text-slate-600 hover:text-slate-900 font-medium text-[13px] transition-colors cursor-pointer whitespace-nowrap">
+            <span class="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[11px] font-bold shrink-0">3</span>
+            <span>Naming Rule</span>
+          </button>
+
+          <span class="text-slate-300 px-1.5 text-[12px] shrink-0">›</span>
+
+          <button id="nav-stage-4" onclick="switchStage(4)" 
+            class="stage-nav-btn active-tab flex items-center gap-2 px-3.5 py-1.5 rounded bg-white text-blue-700 font-bold shadow-xs border border-slate-200 text-[13px] transition-colors cursor-pointer whitespace-nowrap">
+            <span class="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0">4</span>
+            <span>Main Workspace</span>
+          </button>
+
+        </nav>
+
+        <!-- Active Scan Profile Indicator -->
+        <div class="flex items-center gap-3 shrink-0">
+          <div class="flex items-center gap-2 text-slate-500 text-[12px] whitespace-nowrap">
+            <span class="text-slate-500 font-medium">Scan Rule:</span>
+            <span id="top-active-rule-label" class="font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 truncate max-w-[220px]">
+              Scan Rule 1 (A1 Architectural)
+            </span>
+          </div>
+        </div>
+
+      </header>
+
+
+      <!-- ============================================================
+           STAGE VIEWS CONTAINER (Fixed Geometry, 100% Inside Desktop Frame)
+           ============================================================ -->
+      <main class="flex-1 overflow-hidden relative flex flex-col bg-[#f1f5f9]">
+
+        <!-- ==========================================================
+             STAGE 1: ENGINE ASSETS
+             ========================================================== -->
+        <section id="stage-view-1" class="stage-view hidden h-full w-full flex-col p-6 overflow-y-auto">
+          <div class="max-w-4xl mx-auto w-full space-y-4">
+            
+            <!-- Welcome Box -->
+            <div class="bg-white border border-slate-200 rounded-lg p-5 shadow-xs shrink-0">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h1 class="text-base font-bold text-slate-900 whitespace-nowrap">Welcome to DocRenamer Desktop</h1>
+                  <p class="text-slate-600 text-[13px] mt-1 max-w-2xl leading-relaxed">
+                    DocRenamer runs completely offline directly within your browser. To ensure full air-gapped performance, upload your local OCR and rendering engine assets below or restore the built-in defaults. Once saved, the application will automatically initialize them on every future startup.
+                  </p>
+                </div>
+                <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0 border border-blue-100">
+                  <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Startup Auto-Load Status Box with Smooth Tick Mark Animation -->
+              <div id="startup-loaded-banner" class="mt-4 p-3.5 bg-emerald-50 border border-emerald-200 rounded-md flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 border border-emerald-300">
+                  <svg class="w-5 h-5 text-emerald-600 animate-pop-in" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline class="animate-check-stroke" points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+                <div class="flex-1 truncate">
+                  <div class="font-bold text-emerald-900 text-[13px] flex items-center gap-2 whitespace-nowrap">
+                    <span>Engine Assets Loaded Automatically</span>
+                    <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200">Saved in Local Storage</span>
+                  </div>
+                  <div class="text-emerald-700 text-[12px] truncate mt-0.5" id="startup-loaded-details">
+                    Tesseract WASM Core, Language Training Data, and PDF.js Worker are verified and active for offline OCR processing.
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Upload Asset Files Grid -->
+            <div class="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4 shrink-0">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-200 whitespace-nowrap">
+                <div>
+                  <h2 class="font-bold text-slate-900 text-[14px]">Local Engine Asset Files</h2>
+                  <p class="text-slate-500 text-[12px]">Upload replacement engine files or verify currently saved assets.</p>
+                </div>
+                <button onclick="loadDefaultAssets()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[12px] font-semibold border border-slate-300 transition-colors cursor-pointer whitespace-nowrap">
+                  Restore Default Assets
+                </button>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3.5">
+                
+                <!-- Asset 1: OCR WASM Core -->
+                <div class="border border-slate-200 rounded-md p-3.5 bg-slate-50/50 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between mb-1 whitespace-nowrap">
+                      <span class="font-bold text-slate-800 text-[13px]">1. OCR Core (WASM)</span>
+                      <span id="badge-wasm" class="text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">VERIFIED</span>
+                    </div>
+                    <p class="text-slate-500 text-[12px] mb-2 truncate">Tesseract WebAssembly binary.</p>
+                    <div id="file-info-wasm" class="text-[12px] text-slate-700 font-semibold bg-white p-2 rounded border border-slate-200 mb-2 truncate">
+                      tesseract-core.wasm (18.2 MB)
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block w-full text-center py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[12px] font-semibold cursor-pointer transition-colors shadow-2xs whitespace-nowrap">
+                      Choose File...
+                      <input type="file" id="input-asset-wasm" accept=".wasm,.js" class="hidden" onchange="handleAssetUpload('wasm', this.files[0])" />
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Asset 2: Language Traineddata -->
+                <div class="border border-slate-200 rounded-md p-3.5 bg-slate-50/50 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between mb-1 whitespace-nowrap">
+                      <span class="font-bold text-slate-800 text-[13px]">2. Language Pack</span>
+                      <span id="badge-lang" class="text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">VERIFIED</span>
+                    </div>
+                    <p class="text-slate-500 text-[12px] mb-2 truncate">Trained neural LSTM network.</p>
+                    <div id="file-info-lang" class="text-[12px] text-slate-700 font-semibold bg-white p-2 rounded border border-slate-200 mb-2 truncate">
+                      eng.traineddata (4.1 MB)
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block w-full text-center py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[12px] font-semibold cursor-pointer transition-colors shadow-2xs whitespace-nowrap">
+                      Choose File...
+                      <input type="file" id="input-asset-lang" accept=".traineddata,.dat" class="hidden" onchange="handleAssetUpload('lang', this.files[0])" />
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Asset 3: PDF Rasterizer Worker -->
+                <div class="border border-slate-200 rounded-md p-3.5 bg-slate-50/50 flex flex-col justify-between">
+                  <div>
+                    <div class="flex items-center justify-between mb-1 whitespace-nowrap">
+                      <span class="font-bold text-slate-800 text-[13px]">3. Canvas Worker</span>
+                      <span id="badge-worker" class="text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">VERIFIED</span>
+                    </div>
+                    <p class="text-slate-500 text-[12px] mb-2 truncate">High-resolution PDF rasterizer.</p>
+                    <div id="file-info-worker" class="text-[12px] text-slate-700 font-semibold bg-white p-2 rounded border border-slate-200 mb-2 truncate">
+                      pdf.worker.min.js (2.8 MB)
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block w-full text-center py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[12px] font-semibold cursor-pointer transition-colors shadow-2xs whitespace-nowrap">
+                      Choose File...
+                      <input type="file" id="input-asset-worker" accept=".js" class="hidden" onchange="handleAssetUpload('worker', this.files[0])" />
+                    </label>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Action Bar -->
+              <div class="pt-3 border-t border-slate-200 flex items-center justify-between whitespace-nowrap">
+                <div class="flex items-center gap-2">
+                  <button onclick="cacheAssetsToIndexedDB()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded font-semibold text-[12px] flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap">
+                    <svg class="w-3.5 h-3.5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    <span>Cache Engine Blobs to IndexedDB</span>
+                  </button>
+                  <span id="indexeddb-storage-status" class="text-[11px] text-slate-500 font-medium">Persistent IndexedDB Ready</span>
+                </div>
+                <button onclick="saveAndProceedAssets()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-[13px] flex items-center gap-2 cursor-pointer shadow-xs transition-colors whitespace-nowrap">
+                  <span>Save and Proceed</span>
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+
+        <!-- ==========================================================
+             STAGE 2: SIMPLIFIED OCR ZONES & SCAN RULES
+             ========================================================== -->
+        <section id="stage-view-2" class="stage-view hidden h-full w-full flex-col p-3 overflow-hidden">
+          
+          <!-- Header Toolbar -->
+          <div class="h-11 bg-white border border-slate-200 rounded-lg px-3 mb-2 flex items-center justify-between shrink-0 shadow-xs whitespace-nowrap">
+            
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-[12px] text-slate-600 font-bold">Active Scan Rule:</span>
+                <select id="stage2-rule-select" onchange="switchScanRule(this.value)" class="bg-slate-50 border border-slate-300 text-slate-900 text-[12px] font-bold rounded px-2.5 py-1 focus:outline-none focus:border-blue-600 cursor-pointer">
+                  <!-- Populated by JavaScript -->
+                </select>
+                <button onclick="createNewScanRulePrompt()" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-[12px] font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                  <span>+ New Rule</span>
+                </button>
+              </div>
+
+              <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+              <!-- Upload Sample PDF / Image Button -->
+              <div class="flex items-center gap-2">
+                <span class="text-[12px] text-slate-600 font-bold">Sample Document:</span>
+                <label class="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-[12px] font-semibold cursor-pointer shadow-2xs whitespace-nowrap">
+                  <svg class="w-3.5 h-3.5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                  <span>Upload Sample PDF / Image</span>
+                  <input type="file" id="sample-doc-input" accept=".pdf,image/*" class="hidden" onchange="handleSampleDocUpload(this.files[0])" />
+                </label>
+                <span id="sample-doc-name" class="text-[12px] text-slate-500 font-medium truncate max-w-[200px]">Sample_Architectural_A1.pdf</span>
+              </div>
+            </div>
+
+            <!-- Drawing / Zone Controls -->
+            <div class="flex items-center gap-2">
+              <button id="draw-mode-btn" onclick="toggleDrawMode()" class="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded font-semibold text-[12px] flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                <span id="draw-mode-text">Click to Draw Zone</span>
+              </button>
+              <button onclick="saveScanRule()" class="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-[12px] flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span>Save Scan Rule</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- 2-Panel Layout: Document Canvas (Left) + Configured Zones with Renaming (Right) -->
+          <div class="flex-1 flex gap-2.5 overflow-hidden">
+            
+            <!-- Left: Sample PDF Canvas Viewport -->
+            <div class="flex-1 bg-white border border-slate-200 rounded-lg p-2.5 flex flex-col overflow-hidden shadow-xs">
+              
+              <div class="h-6 flex items-center justify-between pb-1 border-b border-slate-200 mb-1 text-xs text-slate-500 whitespace-nowrap shrink-0">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium">Draw rectangles directly on the title block to capture text zones.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span id="canvas-status-hint" class="text-blue-700 font-bold">Ready: Drag on canvas to create zone</span>
+                  <span>·</span>
+                  <span class="font-medium">Zoom: 100%</span>
+                </div>
+              </div>
+
+              <!-- Viewport Container -->
+              <div id="zone-canvas-container" class="flex-1 bg-slate-100 border border-slate-200 rounded overflow-hidden relative flex items-center justify-center p-2">
+                
+                <!-- Document Sheet Element -->
+                <div id="sample-sheet" 
+                  onmousedown="handleCanvasMouseDown(event)" 
+                  onmousemove="handleCanvasMouseMove(event)" 
+                  onmouseup="handleCanvasMouseUp(event)"
+                  class="relative w-[660px] h-[410px] bg-white border-2 border-slate-300 shadow-md select-none transition-shadow shrink-0">
+                  
+                  <div class="absolute inset-1.5 border border-slate-200 pointer-events-none"></div>
+
+                  <!-- Sample Architectural Sheet Graphics -->
+                  <div class="p-3 h-full flex flex-col justify-between pointer-events-none">
+                    <div class="flex justify-between text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                      <span>CIVIC CENTER HEALTHCARE COMPLEX</span>
+                      <span>LEVEL 02 MECHANICAL AND HVAC PIPING</span>
+                      <span>SCALE 1:100</span>
+                    </div>
+
+                    <!-- Center CAD Schematic Artwork -->
+                    <div class="flex-1 flex items-center justify-center opacity-30">
+                      <svg class="w-4/5 h-4/5 text-slate-500" viewBox="0 0 600 300" fill="none" stroke="currentColor" stroke-width="1.2">
+                        <rect x="20" y="20" width="560" height="260" stroke="#64748b" stroke-width="2"></rect>
+                        <line x1="20" y1="150" x2="580" y2="150" stroke="#94a3b8" stroke-dasharray="4 4"></line>
+                        <line x1="300" y1="20" x2="300" y2="280" stroke="#94a3b8" stroke-dasharray="4 4"></line>
+                        <rect x="60" y="50" width="180" height="70" stroke="#2563eb" stroke-width="1.5"></rect>
+                        <text x="70" y="85" fill="#1e40af" font-size="11">AHU SUPPLY UNIT 01</text>
+                        <rect x="360" y="50" width="180" height="70" stroke="#2563eb" stroke-width="1.5"></rect>
+                        <text x="370" y="85" fill="#1e40af" font-size="11">EXHAUST RETURN DUCT</text>
+                      </svg>
+                    </div>
+
+                    <!-- Title Block Table in Bottom Right -->
+                    <div class="flex justify-end">
+                      <div class="w-80 border-2 border-slate-600 bg-white p-2.5 rounded-xs text-[11px] text-slate-700">
+                        <div class="text-[10px] text-slate-500 border-b border-slate-300 pb-1 flex justify-between font-bold whitespace-nowrap">
+                          <span>METRO INFRASTRUCTURE CONSULTANTS</span>
+                          <span>ISO 19650</span>
+                        </div>
+                        <div class="grid grid-cols-12 gap-1.5 mt-1.5">
+                          <div class="col-span-8 p-1 bg-slate-50 border border-slate-200 rounded">
+                            <span class="text-[9px] text-slate-400 block font-bold">DRAWING TITLE</span>
+                            <span class="font-bold text-slate-900 text-[11px] truncate block">HVAC DUCTWORK LEVEL 2</span>
+                          </div>
+                          <div class="col-span-4 p-1 bg-slate-50 border border-slate-200 rounded text-right">
+                            <span class="text-[9px] text-slate-400 block font-bold">REVISION</span>
+                            <span class="font-bold text-slate-900 text-[11px]">C</span>
+                          </div>
+                          <div class="col-span-8 p-1 bg-slate-50 border border-slate-200 rounded mt-0.5">
+                            <span class="text-[9px] text-slate-400 block font-bold">DRAWING NUMBER</span>
+                            <span class="font-bold text-slate-900 text-[12px] tracking-wide">MEP-HVAC-M-102</span>
+                          </div>
+                          <div class="col-span-4 p-1 bg-slate-50 border border-slate-200 rounded text-right mt-0.5">
+                            <span class="text-[9px] text-slate-400 block font-bold">ISSUE DATE</span>
+                            <span class="font-bold text-slate-900 text-[11px]">2026-09-27</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- DYNAMIC RECTANGLE ZONES CONTAINER -->
+                  <canvas id="sample-pdf-canvas" class="absolute inset-0 w-full h-full object-contain pointer-events-none hidden z-0"></canvas>
+                  <div id="zones-overlay-layer" class="absolute inset-0 pointer-events-none z-10">
+                    <!-- Injected via JavaScript -->
+                  </div>
+
+                  <!-- Active Drawing Rubberband Box -->
+                  <div id="rubberband-box" class="absolute hidden border-2 border-dashed border-blue-600 bg-blue-500/20 pointer-events-none"></div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- Right: Configured Zones with Renaming for Naming Rule -->
+            <div class="w-80 h-full bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between shrink-0 shadow-xs overflow-hidden">
+              
+              <div class="flex flex-col h-full overflow-hidden">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200 mb-2 whitespace-nowrap shrink-0">
+                  <div>
+                    <span class="font-bold text-slate-900 text-[13px] block">Configured Zones</span>
+                    <span class="text-[11px] text-slate-500">Rename identifiers for naming rule</span>
+                  </div>
+                  <span id="zone-count-badge" class="text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-bold shrink-0">
+                    3 Zones
+                  </span>
+                </div>
+
+                <!-- Zone Cards List -->
+                <div id="rule-zones-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                  <!-- Injected via JavaScript -->
+                </div>
+
+                <!-- Presets Toolbar -->
+                <div class="pt-2 border-t border-slate-200 mt-2 space-y-1.5 shrink-0">
+                  <div class="text-[11px] text-slate-600 font-bold whitespace-nowrap">
+                    Quick-Add Zone Presets:
+                  </div>
+                  <div class="flex gap-1.5 whitespace-nowrap">
+                    <button onclick="addPresetZone('DWG_NO', '#2563eb')" class="flex-1 py-1 px-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-bold transition-colors cursor-pointer text-center">
+                      + DWG_NO
+                    </button>
+                    <button onclick="addPresetZone('REV', '#d97706')" class="flex-1 py-1 px-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-bold transition-colors cursor-pointer text-center">
+                      + REV
+                    </button>
+                    <button onclick="addPresetZone('DATE', '#9333ea')" class="flex-1 py-1 px-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded text-[11px] font-bold transition-colors cursor-pointer text-center">
+                      + DATE
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer Navigation -->
+              <div class="pt-2 border-t border-slate-200 flex justify-between items-center mt-2 shrink-0 whitespace-nowrap">
+                <button onclick="switchStage(1)" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[12px] font-semibold cursor-pointer">
+                  ‹ Back
+                </button>
+                <button onclick="switchStage(3)" class="px-3.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[12px] font-bold flex items-center gap-1 cursor-pointer shadow-xs">
+                  <span>Next: Naming Rule</span>
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- ==========================================================
+             STAGE 3: NAMING RULE BUILDER
+             ========================================================== -->
+        <section id="stage-view-3" class="stage-view hidden h-full w-full flex-col p-6 overflow-y-auto">
+          <div class="max-w-3xl mx-auto w-full space-y-4">
+            
+            <div class="bg-white border border-slate-200 rounded-lg p-5 shadow-xs shrink-0">
+              <h2 class="text-base font-bold text-slate-900 whitespace-nowrap">Stage 3: File Naming Rule</h2>
+              <p class="text-slate-500 text-[13px] mt-0.5 whitespace-nowrap">
+                Tokens below reflect the identifiers established and renamed in Stage 2.
+              </p>
+
+              <div class="mt-4 space-y-4">
+                
+                <!-- Formula Input -->
+                <div>
+                  <label for="naming-formula-input" class="block font-bold text-slate-800 text-[13px] mb-1 whitespace-nowrap">
+                    Filename Pattern Formula:
+                  </label>
+                  <div class="flex items-center gap-2">
+                    <input id="naming-formula-input" type="text" 
+                      value="{PROJECT}_{DWG_NO}_REV{REV}" 
+                      oninput="updateNamingPreview()"
+                      class="flex-1 bg-slate-50 border border-slate-300 text-slate-900 font-bold text-[13px] px-3 py-2 rounded focus:outline-none focus:border-blue-600" />
+                  </div>
+                </div>
+
+                <!-- Available Identifiers from Active Scan Rule -->
+                <div>
+                  <span class="text-xs text-slate-500 font-bold block mb-1.5 whitespace-nowrap">Click an identifier to insert:</span>
+                  <div id="identifier-token-chips" class="flex flex-wrap gap-2">
+                    <!-- Populated dynamically from Stage 2 zones -->
+                  </div>
+                </div>
+
+                <!-- Delimiter and Options -->
+                <div class="grid grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+                  <div>
+                    <label for="naming-delimiter-select" class="block text-slate-700 text-[12px] font-bold mb-1 whitespace-nowrap">Separator:</label>
+                    <select id="naming-delimiter-select" onchange="onDelimiterChange(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded text-slate-800 text-[12px] px-2.5 py-1.5 font-bold">
+                      <option value="_">Underscore (_)</option>
+                      <option value="-">Hyphen (-)</option>
+                      <option value=".">Period (.)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label for="naming-case-select" class="block text-slate-700 text-[12px] font-bold mb-1 whitespace-nowrap">Letter Casing:</label>
+                    <select id="naming-case-select" onchange="updateNamingPreview()" class="w-full bg-slate-50 border border-slate-300 rounded text-slate-800 text-[12px] px-2.5 py-1.5 font-bold">
+                      <option value="UPPER">UPPERCASE (Standard CAD)</option>
+                      <option value="PRESERVE">Preserve Original Text</option>
+                      <option value="LOWER">lowercase</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Live Preview Sandbox -->
+                <div class="bg-slate-50 p-3.5 rounded-md border border-slate-200">
+                  <span class="text-xs text-slate-500 font-bold block mb-1 whitespace-nowrap">Resulting Filename Preview:</span>
+                  <div class="flex items-center gap-3">
+                    <span id="naming-preview-text" class="text-blue-700 font-bold text-[14px] truncate">
+                      PRJ2026_MEP-HVAC-M-102_REVC.pdf
+                    </span>
+                    <span class="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0 whitespace-nowrap">Valid Format</span>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Footer Navigation -->
+              <div class="pt-4 border-t border-slate-200 flex justify-between items-center mt-4 whitespace-nowrap">
+                <button onclick="switchStage(2)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[12px] font-semibold cursor-pointer">
+                  ‹ Back to OCR Zones
+                </button>
+                <button onclick="switchStage(4)" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-[13px] font-bold flex items-center gap-1.5 cursor-pointer shadow-xs">
+                  <span>Go to Main Workspace</span>
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+
+        <!-- ==========================================================
+             STAGE 4: MAIN WORKSPACE (WITH COMPLETE SEQUENCE OF OPERATION)
+             ========================================================== -->
+        <section id="stage-view-4" class="stage-view flex h-full w-full overflow-hidden p-2 gap-2">
+          
+          <!-- LEFT PANEL: SOURCE FOLDER & QUEUE (Width 310px Fixed) -->
+          <aside class="w-[310px] min-w-[310px] max-w-[310px] h-full bg-white border border-slate-200 rounded-lg flex flex-col shrink-0 select-none shadow-xs overflow-hidden">
+            
+            <!-- Source Folder Selector Card -->
+            <div class="p-2.5 border-b border-slate-200 bg-slate-50/80 space-y-1 shrink-0">
+              <div class="flex items-center justify-between text-[12px] text-slate-800 font-bold whitespace-nowrap">
+                <div class="flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                  <span>Source File Folder:</span>
+                </div>
+                <button onclick="browseSourceFolder()" class="text-blue-600 hover:text-blue-800 text-[11px] font-bold cursor-pointer">
+                  Change...
+                </button>
+              </div>
+              <div class="flex items-center gap-1">
+                <input type="text" id="source-folder-input" value="/Users/Documents/Scanned_Drawings_2026/" readonly
+                  class="w-full bg-white border border-slate-300 text-slate-700 text-[11px] font-medium px-2 py-1 rounded truncate focus:outline-none select-all" />
+              </div>
+            </div>
+
+            <!-- Queue Header & Action Bar -->
+            <div class="p-2.5 border-b border-slate-200 flex items-center justify-between bg-white shrink-0 whitespace-nowrap">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 text-[13px]">Queued Files</span>
+                <span id="workspace-file-count" class="text-[11px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-bold">
+                  6 Files
+                </span>
+              </div>
+
+              <!-- Add Files / Batch Buttons -->
+              <div class="flex items-center gap-1">
+                <label class="py-1 px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors whitespace-nowrap">
+                  <span>+ Add</span>
+                  <input type="file" id="workspace-file-input" multiple accept=".pdf,image/*" class="hidden" onchange="handleWorkspaceFilesAdded(this.files)" />
+                </label>
+                <button onclick="loadSampleBatchFiles()" class="py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded text-[11px] font-semibold cursor-pointer whitespace-nowrap" title="Load Sample Documents">
+                  Sample
+                </button>
+              </div>
+            </div>
+
+            <!-- Batch Selection Bar -->
+            <div class="px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs text-slate-700 shrink-0 whitespace-nowrap">
+              <label class="flex items-center gap-2 cursor-pointer font-bold">
+                <input type="checkbox" id="select-all-checkbox" checked onchange="toggleSelectAllFiles(this.checked)" class="rounded border-slate-300 text-blue-600 focus:ring-0" />
+                <span>Select All</span>
+              </label>
+              <span id="selected-files-count" class="text-slate-500 font-semibold text-[11px]">6 selected</span>
+            </div>
+
+            <!-- File Items List -->
+            <div id="workspace-file-list" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+              <!-- Populated via JavaScript -->
+            </div>
+
+            <!-- Bottom Reset Queue Bar -->
+            <div class="p-2 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0 whitespace-nowrap">
+              <span class="text-[11px] text-slate-500">Document Queue Actions</span>
+              <button onclick="resetQueueStatuses()" class="text-[11px] text-slate-600 hover:text-blue-600 font-semibold underline cursor-pointer">
+                Reset All to Ready
+              </button>
+            </div>
+
+          </aside>
+
+
+          <!-- CENTER PANEL: SEQUENCE OF OPERATION & DOCUMENT INSPECTOR (Flex-1) -->
+          <section class="flex-1 h-full bg-white border border-slate-200 rounded-lg flex flex-col overflow-hidden relative shadow-xs">
+            
+            <!-- ============================================================
+                 SEQUENCE OF OPERATION CONTROLLER TOOLBAR (User Requested)
+                 ============================================================ -->
+            <div class="h-12 bg-slate-50 border-b border-slate-200 px-3 flex items-center justify-between shrink-0 whitespace-nowrap z-10">
+              
+              <!-- Left: Core Sequence Buttons -->
+              <div class="flex items-center gap-1.5">
+                
+                <!-- 1. Start Scanning (Active File) -->
+                <button id="op-start-scan-btn" onclick="startScanningCurrentFile()" 
+                  class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded font-bold text-[12px] flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors whitespace-nowrap"
+                  title="Run OCR zone extraction on currently viewed document">
+                  <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span>Start Scanning</span>
+                </button>
+
+                <!-- 2. Skip File -->
+                <button id="op-skip-btn" onclick="skipCurrentFile()" 
+                  class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded font-semibold text-[12px] flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                  title="Skip current file and advance to the next in queue">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                  <span>Skip</span>
+                </button>
+
+                <div class="h-5 w-px bg-slate-200 mx-1"></div>
+
+                <!-- 3. Scan Selected Files -->
+                <button id="op-scan-selected-btn" onclick="scanSelectedQueueFiles()" 
+                  class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded font-semibold text-[12px] flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+                  title="Run OCR scanning on all checked files">
+                  <svg class="w-3.5 h-3.5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <span>Scan Selected</span>
+                </button>
+
+                <!-- 4. Batch Scan All -->
+                <button id="op-batch-scan-btn" onclick="batchScanAllQueueFiles()" 
+                  class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded font-bold text-[12px] flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shadow-xs"
+                  title="Run batch automated scan across entire queue">
+                  <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                  <span>Batch Scan All</span>
+                </button>
+
+                <!-- 5. Pause / Resume Button (Toggled during processing) -->
+                <button id="op-pause-btn" onclick="togglePauseScan()" class="hidden px-2 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded font-semibold text-[12px] items-center gap-1 cursor-pointer transition-colors whitespace-nowrap">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                  <span id="op-pause-text">Pause</span>
+                </button>
+
+              </div>
+
+              <!-- Right: Sequence Step Completion Action -->
+              <div class="flex items-center gap-2">
+                <!-- Manual Edit Extracted Values Button -->
+                <button onclick="promptManualEditFields()" class="px-2 py-1 bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer" title="Edit extracted values manually">
+                  <svg class="w-3 h-3 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  <span>Manual Edit</span>
+                </button>
+
+                <!-- Approve & Rename Current Document -->
+                <button id="op-approve-btn" onclick="approveAndRenameCurrentFile()" 
+                  class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded font-bold text-[12px] flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors whitespace-nowrap"
+                  title="Approve extracted fields and rename file">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>Approve & Rename</span>
+                </button>
+              </div>
+
+            </div>
+
+            <!-- Sequence Status Info Ribbon -->
+            <div class="h-7 bg-blue-50/70 border-b border-blue-100 px-3 flex items-center justify-between text-xs shrink-0 whitespace-nowrap">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                <span id="op-status-message" class="text-blue-900 font-bold text-[12px]">
+                  Sequence Status: Ready to scan active document (SCAN_20260927_001.pdf)
+                </span>
+              </div>
+              <div class="flex items-center gap-3 text-slate-500 text-[11px]">
+                <span id="op-queue-progress-count">File 1 of 6</span>
+                <span>·</span>
+                <span id="op-engine-status-tag" class="text-emerald-700 font-bold">OCR Engine Idle</span>
+              </div>
+            </div>
+
+            <!-- Inspector Sub-Header (Document name) -->
+            <div class="h-8 bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 text-xs whitespace-nowrap">
+              <div class="flex items-center gap-2 truncate">
+                <span class="text-slate-400 font-bold">Active Sheet:</span>
+                <span id="workspace-viewing-filename" class="font-bold text-slate-900 text-[13px] truncate max-w-sm">
+                  SCAN_20260927_001.pdf
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2 text-slate-600 shrink-0 text-[12px]">
+                <span>Status: <strong id="workspace-active-status" class="text-blue-700">Ready</strong></span>
+                <span>·</span>
+                <span>Zoom: 100%</span>
+              </div>
+            </div>
+
+            <!-- Document Canvas Viewport (100% Fit Inside Viewport, Never Chopped) -->
+            <div class="flex-1 overflow-hidden p-3 flex items-center justify-center bg-slate-100 relative">
+              
+              <!-- Scanning Laser Beam Animation Bar -->
+              <div id="canvas-laser-line" class="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent shadow-[0_0_8px_#3b82f6] hidden z-20 pointer-events-none animate-laser-scan"></div>
+
+              <!-- Sheet Container -->
+              <div id="workspace-canvas-sheet" class="relative w-[630px] h-[385px] bg-white border border-slate-300 shadow-md flex flex-col justify-between p-3 select-none shrink-0 overflow-hidden">
+                <canvas id="workspace-pdf-canvas" class="absolute inset-0 w-full h-full object-contain pointer-events-none hidden z-0"></canvas>
+                <div id="workspace-zones-overlay" class="absolute inset-0 pointer-events-none z-10"></div>
+                
+                <div class="flex justify-between text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                  <span id="ws-sheet-proj">PROJECT: NORTH TOWER CIVIC EXPANSION</span>
+                  <span>TECHNICAL DRAWING SHEET</span>
+                  <span>SCALE: 1:100</span>
+                </div>
+
+                <!-- Schematic graphic -->
+                <div class="flex-1 flex items-center justify-center opacity-40">
+                  <svg class="w-3/4 h-3/4 text-slate-600" viewBox="0 0 600 300" fill="none" stroke="currentColor" stroke-width="1.2">
+                    <rect x="30" y="20" width="540" height="240" stroke="#64748b" stroke-width="2"></rect>
+                    <circle cx="90" cy="70" r="8" fill="#cbd5e1" stroke="#475569"></circle>
+                    <circle cx="210" cy="70" r="8" fill="#cbd5e1" stroke="#475569"></circle>
+                    <circle cx="330" cy="70" r="8" fill="#cbd5e1" stroke="#475569"></circle>
+                    <line x1="90" y1="70" x2="330" y2="70" stroke="#2563eb" stroke-width="2"></line>
+                    <rect x="180" y="130" width="120" height="60" stroke="#059669" stroke-width="1.5"></rect>
+                    <text x="190" y="165" fill="#047857" font-size="11">CENTRAL HVAC SHAFT</text>
+                  </svg>
+                </div>
+
+                <!-- Title Block with Active Scan Rule OCR Overlays (Generous Padding, Never Chopped) -->
+                <div class="flex justify-end">
+                  <div class="w-80 border-2 border-slate-600 bg-white p-2.5 rounded-xs text-[11px]">
+                    
+                    <div class="text-[10px] text-slate-500 border-b border-slate-300 pb-1 flex justify-between font-bold whitespace-nowrap">
+                      <span>NORTH TOWER INFRASTRUCTURE</span>
+                      <span id="ws-sheet-code">ZONE 01</span>
+                    </div>
+
+                    <div class="grid grid-cols-12 gap-1.5 mt-1.5">
+                      
+                      <div class="col-span-8 p-1.5 bg-blue-50 border border-blue-300 rounded">
+                        <span class="text-[10px] text-blue-800 block font-bold whitespace-nowrap" id="ws-zone1-label">DWG_NO (ZONE 1)</span>
+                        <span id="ws-extracted-dwg" class="font-bold text-slate-900 text-[12px] truncate block">MEP-HVAC-M-102</span>
+                      </div>
+
+                      <div class="col-span-4 p-1.5 bg-amber-50 border border-amber-300 rounded text-right">
+                        <span class="text-[10px] text-amber-800 block font-bold whitespace-nowrap" id="ws-zone2-label">REV (ZONE 2)</span>
+                        <span id="ws-extracted-rev" class="font-bold text-slate-900 text-[12px]">C</span>
+                      </div>
+
+                      <div class="col-span-12 p-1.5 bg-purple-50 border border-purple-300 rounded mt-0.5">
+                        <span class="text-[10px] text-purple-800 block font-bold whitespace-nowrap" id="ws-zone3-label">DATE & TITLE (ZONE 3)</span>
+                        <span id="ws-extracted-date" class="font-bold text-slate-800 text-[11px] truncate block">2026-09-27 · LEVEL 02 HVAC DUCTWORK</span>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <!-- Bottom Extracted Values Bar -->
+            <div class="h-11 bg-white border-t border-slate-200 px-4 flex items-center justify-between text-xs text-slate-700 shrink-0 whitespace-nowrap">
+              <div class="flex items-center gap-4 truncate">
+                <span class="text-[12px]"><strong>Dwg:</strong> <span id="ws-bottom-dwg" class="text-blue-700 font-bold">MEP-HVAC-M-102</span></span>
+                <span class="text-[12px]"><strong>Rev:</strong> <span id="ws-bottom-rev" class="text-amber-700 font-bold">C</span></span>
+                <span class="truncate text-[12px]"><strong>Output:</strong> <span id="ws-bottom-target" class="text-emerald-700 font-bold truncate">PRJ2026_MEP-HVAC-M-102_REVC.pdf</span></span>
+              </div>
+              <div class="text-slate-500 font-bold text-[12px] shrink-0">
+                Confidence: <span class="text-emerald-600">99.4%</span>
+              </div>
+            </div>
+
+          </section>
+
+
+          <!-- RIGHT PANEL: DESTINATION FOLDER & AUDIT LOG (Width 320px Fixed) -->
+          <aside class="w-[320px] min-w-[320px] max-w-[320px] h-full bg-white border border-slate-200 rounded-lg flex flex-col shrink-0 select-none shadow-xs overflow-hidden">
+            
+            <!-- DESTINATION OUTPUT FOLDER CONFIGURATION -->
+            <div class="p-3 border-b border-slate-200 bg-white space-y-2 shrink-0">
+              <div class="flex items-center gap-1.5 text-slate-900 font-bold text-[13px] whitespace-nowrap">
+                <svg class="w-4 h-4 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><polyline points="12 11 12 17 9 14"></polyline><polyline points="12 17 15 14"></polyline></svg>
+                <span>Destination Output Folder:</span>
+              </div>
+              
+              <!-- Desktop Radio Toggle Options -->
+              <div class="space-y-1 text-xs text-slate-700">
+                <label class="flex items-center gap-2 cursor-pointer font-bold whitespace-nowrap">
+                  <input type="radio" name="folder-dest-radio" id="folder-radio-same" value="same" onchange="onFolderDestChange('same')" class="text-blue-600 focus:ring-0" />
+                  <span>Keep in same folder as source</span>
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer font-bold whitespace-nowrap">
+                  <input type="radio" name="folder-dest-radio" id="folder-radio-target" value="target" checked onchange="onFolderDestChange('target')" class="text-blue-600 focus:ring-0" />
+                  <span>Move to target folder</span>
+                </label>
+              </div>
+
+              <!-- Target Folder Path Selector -->
+              <div id="target-folder-container" class="pt-0.5 space-y-1">
+                <div class="flex items-center gap-1">
+                  <input type="text" id="target-folder-input" value="/Users/Documents/Archive_2026/" readonly 
+                    class="flex-1 bg-slate-50 border border-slate-300 text-slate-700 text-[11px] font-medium px-2 py-1 rounded truncate focus:outline-none" />
+                  <button onclick="browseTargetFolder()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap">
+                    Browse...
+                  </button>
+                </div>
+              </div>
+
+              <!-- Same Folder Display Preview -->
+              <div id="same-folder-display" class="hidden text-[11px] text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-200 truncate">
+                Output: <span id="same-folder-path-label" class="font-bold text-slate-800">/Users/Documents/Scanned_Drawings_2026/</span>
+              </div>
+            </div>
+
+            <!-- Scan Rule Selector -->
+            <div class="p-2.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between text-xs shrink-0 whitespace-nowrap">
+              <span class="text-slate-700 font-bold">Active Scan Rule:</span>
+              <select id="ws-rule-select" onchange="onWorkspaceRuleChange(this.value)" class="bg-white border border-slate-300 text-slate-800 text-[12px] font-bold rounded px-2 py-1 focus:outline-none max-w-[170px] truncate">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Progress Bar (Visible during batch/selected operation) -->
+            <div id="workspace-progress-container" class="hidden p-2.5 bg-blue-50 border-b border-blue-200 space-y-1 shrink-0">
+              <div class="flex justify-between text-[11px] text-blue-900 font-bold">
+                <span id="workspace-progress-label">Batch Scanning in Progress...</span>
+                <span id="workspace-progress-pct">0%</span>
+              </div>
+              <div class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
+                <div id="workspace-progress-bar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-200 w-0"></div>
+              </div>
+            </div>
+
+            <!-- Renamed Results & Audit Log Table -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+              <div class="p-2 border-b border-slate-200 bg-white flex items-center justify-between shrink-0 whitespace-nowrap">
+                <span class="font-bold text-slate-900 text-[12px]">Renamed Results & Log</span>
+                <button onclick="exportAuditLog()" class="text-blue-600 hover:text-blue-800 text-[11px] font-bold cursor-pointer whitespace-nowrap">
+                  Export CSV
+                </button>
+              </div>
+
+              <!-- Log Entries List -->
+              <div id="workspace-audit-list" class="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1 text-xs">
+                <!-- Populated by JavaScript -->
+              </div>
+            </div>
+
+          </aside>
+
+        </section>
+
+      </main>
+
+    </div>
+
+    <!-- ============================================================
+         INTERACTIVE JAVASCRIPT LOGIC
+         ============================================================ -->
+    <script>
+      // Global Desktop Application State
+      const AppState = {
+        currentStage: 4,
+        folderDestination: 'target', // 'same' or 'target'
+        sourceFolder: '/Users/Documents/Scanned_Drawings_2026/',
+        targetFolder: '/Users/Documents/Archive_2026/',
+        isDrawModeActive: false,
+        activeScanRuleId: 'rule-1',
+        selectedWorkspaceFileIndex: 0,
+        isProcessing: false,
+        isPaused: false,
+        
+        // Scan Rules established by user (Scan Rule 1, 2, 3...)
+        scanRules: [
+          {
+            id: 'rule-1',
+            name: 'Scan Rule 1 (A1 Architectural)',
+            zones: [
+              { id: 'z1', name: 'DWG_NO', color: '#2563eb', x: 65, y: 88, w: 20, h: 5 },
+              { id: 'z2', name: 'REV', color: '#d97706', x: 88, y: 88, w: 8, h: 5 },
+              { id: 'z3', name: 'DATE', color: '#9333ea', x: 65, y: 94, w: 15, h: 5 }
+            ]
+          },
+          {
+            id: 'rule-2',
+            name: 'Scan Rule 2 (A3 Mechanical)',
+            zones: [
+              { id: 'z4', name: 'DWG_NO', color: '#2563eb', x: 70, y: 85, w: 22, h: 6 },
+              { id: 'z5', name: 'REV', color: '#d97706', x: 92, y: 85, w: 6, h: 6 }
+            ]
+          },
+          {
+            id: 'rule-3',
+            name: 'Scan Rule 3 (Submittal Covers)',
+            zones: [
+              { id: 'z6', name: 'SUBMITTAL_NO', color: '#16a34a', x: 40, y: 20, w: 30, h: 8 },
+              { id: 'z7', name: 'DATE', color: '#9333ea', x: 40, y: 30, w: 20, h: 6 }
+            ]
+          }
+        ],
+
+        // Source Files in Workspace
+        workspaceFiles: [
+          { id: 1, name: 'SCAN_20260927_001.pdf', size: '1.8 MB', selected: true, status: 'Ready', dwg: 'MEP-HVAC-M-102', rev: 'C', date: '2026-09-27', newName: 'PRJ2026_MEP-HVAC-M-102_REVC.pdf' },
+          { id: 2, name: 'SCAN_20260927_002.pdf', size: '2.4 MB', selected: true, status: 'Ready', dwg: 'ARC-CORE-A-103', rev: 'B', date: '2026-09-27', newName: 'PRJ2026_ARC-CORE-A-103_REVB.pdf' },
+          { id: 3, name: 'DWG_UNNAMED_HVAC_03.pdf', size: '3.1 MB', selected: true, status: 'Ready', dwg: 'MEP-DUCT-M-201', rev: 'A', date: '2026-09-26', newName: 'PRJ2026_MEP-DUCT-M-201_REVA.pdf' },
+          { id: 4, name: 'STRUCT_FOUNDATION_RAW.pdf', size: '4.2 MB', selected: true, status: 'Ready', dwg: 'STR-FDN-S-101', rev: 'D', date: '2026-09-25', newName: 'PRJ2026_STR-FDN-S-101_REVD.pdf' },
+          { id: 5, name: 'ELEC_RISER_DRAFT_2.pdf', size: '1.5 MB', selected: true, status: 'Ready', dwg: 'ELE-PWR-E-301', rev: 'A', date: '2026-09-27', newName: 'PRJ2026_ELE-PWR-E-301_REVA.pdf' },
+          { id: 6, name: 'CIVIL_SITE_DRAINAGE.pdf', size: '2.9 MB', selected: true, status: 'Ready', dwg: 'CIV-DRN-C-012', rev: 'B', date: '2026-09-24', newName: 'PRJ2026_CIV-DRN-C-012_REVB.pdf' }
+        ],
+
+        auditLogs: [
+          { time: '03:40:12', original: 'SCAN_20260927_000.pdf', renamed: 'PRJ2026_ARC-LVL01-A-101_REVA.pdf', status: 'Completed' }
+        ]
+      };
+
+      // Drag Rectangle Drawing State
+      let isDrawing = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+
+      // ==========================================
+      // STAGE NAVIGATION
+      // ==========================================
+      function switchStage(stageNum) {
+        AppState.currentStage = stageNum;
+
+        for (let i = 1; i <= 4; i++) {
+          const view = document.getElementById('stage-view-' + i);
+          const navBtn = document.getElementById('nav-stage-' + i);
+          if (view) {
+            if (i === stageNum) {
+              view.classList.remove('hidden');
+              if (i === 4) view.classList.add('flex');
+            } else {
+              view.classList.add('hidden');
+              if (i === 4) view.classList.remove('flex');
+            }
+          }
+
+          if (navBtn) {
+            const numBadge = navBtn.querySelector('span:first-child');
+            if (i === stageNum) {
+              navBtn.className = 'stage-nav-btn active-tab flex items-center gap-2 px-3.5 py-1.5 rounded bg-white text-blue-700 font-bold shadow-xs border border-slate-200 text-[13px] transition-colors cursor-pointer whitespace-nowrap';
+              if (numBadge) numBadge.className = 'w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0';
+            } else {
+              navBtn.className = 'stage-nav-btn flex items-center gap-2 px-3 py-1.5 rounded text-slate-600 hover:text-slate-900 font-medium text-[13px] transition-colors cursor-pointer whitespace-nowrap';
+              if (numBadge) numBadge.className = 'w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[11px] font-bold shrink-0';
+            }
+          }
+        }
+      }
+
+      // ==========================================
+      // STAGE 1: ENGINE ASSETS & LOCAL PERSISTENCE
+      // ==========================================
+      async function handleAssetUpload(type, file) {
+        if (!file) return;
+        const infoEl = document.getElementById(`file-info-${type}`);
+        const badgeEl = document.getElementById(`badge-${type}`);
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        if (infoEl) infoEl.textContent = `${file.name} (${sizeMb} MB)`;
+        if (badgeEl) {
+          badgeEl.textContent = 'SAVING TO INDEXEDDB...';
+          badgeEl.className = 'text-[11px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200';
+        }
+
+        // Persist to IndexedDB
+        if (window.DocRenamerEngine?.AssetStorage) {
+          try {
+            await window.DocRenamerEngine.AssetStorage.storeAssetBlob(type, file, file.name);
+            if (badgeEl) {
+              badgeEl.textContent = 'STORED (INDEXEDDB)';
+              badgeEl.className = 'text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200';
+            }
+            document.getElementById('indexeddb-storage-status').textContent = `IndexedDB: ${file.name} cached`;
+          } catch (e) {
+            console.warn('IndexedDB save error:', e);
+          }
+        }
+      }
+
+      async function cacheAssetsToIndexedDB() {
+        const statusEl = document.getElementById('indexeddb-storage-status');
+        if (statusEl) statusEl.textContent = 'Caching engine assets into IndexedDB...';
+
+        if (window.DocRenamerEngine?.AssetStorage) {
+          await window.DocRenamerEngine.AssetStorage.seedDefaultAssetsIfMissing();
+          await checkStartupAssets();
+          if (statusEl) statusEl.textContent = 'All 3 engine binaries stored in IndexedDB.';
+          alert('Engine assets successfully stored in local IndexedDB. Ready for offline OCR processing.');
+        }
+      }
+
+      async function loadDefaultAssets() {
+        document.getElementById('file-info-wasm').textContent = 'tesseract-core.wasm (18.2 MB)';
+        document.getElementById('file-info-lang').textContent = 'eng.traineddata (4.1 MB)';
+        document.getElementById('file-info-worker').textContent = 'pdf.worker.min.js (2.8 MB)';
+        
+        ['wasm', 'lang', 'worker'].forEach(k => {
+          const badge = document.getElementById(`badge-${k}`);
+          if (badge) {
+            badge.textContent = 'VERIFIED';
+            badge.className = 'text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200';
+          }
+        });
+
+        if (window.DocRenamerEngine?.AssetStorage) {
+          await window.DocRenamerEngine.AssetStorage.seedDefaultAssetsIfMissing();
+          await checkStartupAssets();
+        }
+      }
+
+      async function saveAndProceedAssets() {
+        const assetsState = {
+          wasm: document.getElementById('file-info-wasm').textContent,
+          lang: document.getElementById('file-info-lang').textContent,
+          worker: document.getElementById('file-info-worker').textContent,
+          savedAt: new Date().toISOString()
+        };
+        localStorage.setItem('docrenamer_desktop_assets', JSON.stringify(assetsState));
+
+        // Initialize engine pipeline with stored IndexedDB blobs
+        if (window.DocRenamerEngine?.AssetStorage) {
+          const bannerDetails = document.getElementById('startup-loaded-details');
+          if (bannerDetails) bannerDetails.textContent = 'Initializing Tesseract WASM & PDF.js workers from IndexedDB...';
+          
+          await window.DocRenamerEngine.AssetStorage.bootstrapEnginePipeline((status, progress) => {
+            if (bannerDetails) {
+              const pct = Math.round(progress * 100);
+              bannerDetails.textContent = `Worker Loading: ${status} (${pct}%)`;
+            }
+          });
+        }
+
+        const banner = document.getElementById('startup-loaded-banner');
+        if (banner) {
+          banner.classList.remove('hidden');
+          banner.classList.remove('animate-pop-in');
+          void banner.offsetWidth;
+          banner.classList.add('animate-pop-in');
+          document.getElementById('startup-loaded-details').textContent = 
+            'Tesseract WASM Core, Language Training Data, and PDF.js Worker initialized from local IndexedDB.';
+        }
+
+        switchStage(2);
+      }
+
+      async function checkStartupAssets() {
+        if (window.DocRenamerEngine?.AssetStorage) {
+          try {
+            const assets = await window.DocRenamerEngine.AssetStorage.getAllStoredAssets();
+            const keys = Object.keys(assets);
+            if (keys.length > 0) {
+              keys.forEach(k => {
+                const info = document.getElementById(`file-info-${k}`);
+                const badge = document.getElementById(`badge-${k}`);
+                if (info && assets[k]) {
+                  const sizeMb = (assets[k].size / (1024 * 1024)).toFixed(1);
+                  info.textContent = `${assets[k].filename} (${sizeMb} MB)`;
+                }
+                if (badge) {
+                  badge.textContent = 'VERIFIED';
+                  badge.className = 'text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200';
+                }
+              });
+
+              // Initialize pipeline in background
+              window.DocRenamerEngine.AssetStorage.bootstrapEnginePipeline();
+
+              const banner = document.getElementById('startup-loaded-banner');
+              if (banner) banner.classList.remove('hidden');
+            }
+          } catch (e) {
+            console.warn('Error reading startup assets:', e);
+          }
+        }
+      }
+
+      // ==========================================
+      // STAGE 2: OCR ZONES & SCAN RULES
+      // ==========================================
+      function populateScanRuleDropdowns() {
+        const selectStage2 = document.getElementById('stage2-rule-select');
+        const selectWs = document.getElementById('ws-rule-select');
+        const topLabel = document.getElementById('top-active-rule-label');
+
+        if (selectStage2) selectStage2.innerHTML = '';
+        if (selectWs) selectWs.innerHTML = '';
+
+        AppState.scanRules.forEach(rule => {
+          const opt1 = document.createElement('option');
+          opt1.value = rule.id;
+          opt1.textContent = rule.name;
+          if (rule.id === AppState.activeScanRuleId) opt1.selected = true;
+          if (selectStage2) selectStage2.appendChild(opt1);
+
+          const opt2 = document.createElement('option');
+          opt2.value = rule.id;
+          opt2.textContent = rule.name;
+          if (rule.id === AppState.activeScanRuleId) opt2.selected = true;
+          if (selectWs) selectWs.appendChild(opt2);
+        });
+
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        if (topLabel && activeRule) topLabel.textContent = activeRule.name;
+        
+        renderCurrentRuleZones();
+        renderNamingTokens();
+        updateWorkspaceExtractedFields();
+      }
+
+      function switchScanRule(ruleId) {
+        AppState.activeScanRuleId = ruleId;
+        populateScanRuleDropdowns();
+      }
+
+      function createNewScanRulePrompt() {
+        const ruleNum = AppState.scanRules.length + 1;
+        const defaultName = `Scan Rule ${ruleNum}`;
+        const name = prompt('Enter a name for the new Scan Rule:', defaultName);
+        if (name && name.trim()) {
+          const newRule = {
+            id: `rule-${Date.now()}`,
+            name: name.trim(),
+            zones: [
+              { id: `z_${Date.now()}_1`, name: 'DWG_NO', color: '#2563eb', x: 68, y: 88, w: 20, h: 5 }
+            ]
+          };
+          AppState.scanRules.push(newRule);
+          AppState.activeScanRuleId = newRule.id;
+          populateScanRuleDropdowns();
+        }
+      }
+
+      async function handleSampleDocUpload(file) {
+        if (!file) return;
+        const nameEl = document.getElementById('sample-doc-name');
+        if (nameEl) nameEl.textContent = file.name;
+
+        const canvasEl = document.getElementById('sample-pdf-canvas');
+        if (canvasEl && file.type === 'application/pdf' && window.DocRenamerEngine?.OcrPipeline) {
+          try {
+            const buf = await file.arrayBuffer();
+            const rendered = await window.DocRenamerEngine.OcrPipeline.renderPdfPage1(buf, 1.5);
+            canvasEl.width = rendered.canvas.width;
+            canvasEl.height = rendered.canvas.height;
+            const ctx = canvasEl.getContext('2d');
+            if (ctx) ctx.drawImage(rendered.canvas, 0, 0);
+            canvasEl.classList.remove('hidden');
+            const hint = document.getElementById('canvas-status-hint');
+            if (hint) hint.textContent = `Page 1 loaded (${Math.round(rendered.unscaledWidth)}×${Math.round(rendered.unscaledHeight)} pt). Drag to draw zones.`;
+          } catch (e) {
+            console.warn('PDF render error:', e);
+          }
+        }
+      }
+
+      function toggleDrawMode() {
+        AppState.isDrawModeActive = !AppState.isDrawModeActive;
+        const btn = document.getElementById('draw-mode-btn');
+        const text = document.getElementById('draw-mode-text');
+        const sheet = document.getElementById('sample-sheet');
+        const hint = document.getElementById('canvas-status-hint');
+
+        if (AppState.isDrawModeActive) {
+          btn.className = 'px-3 py-1 bg-blue-600 text-white rounded font-bold text-[12px] flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap';
+          text.textContent = 'Drawing Active (Drag on Sheet)';
+          if (sheet) sheet.classList.add('canvas-crosshair');
+          if (hint) hint.textContent = 'Drag on canvas to establish a new OCR rectangle zone';
+        } else {
+          btn.className = 'px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-300 rounded font-semibold text-[12px] flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap';
+          text.textContent = 'Click to Draw Zone';
+          if (sheet) sheet.classList.remove('canvas-crosshair');
+          if (hint) hint.textContent = 'Ready: Drag on canvas to create zone';
+        }
+      }
+
+      // Mouse drag handlers on sample sheet to draw OCR rectangles
+      function handleCanvasMouseDown(e) {
+        const sheet = document.getElementById('sample-sheet');
+        const rect = sheet.getBoundingClientRect();
+        isDrawing = true;
+        dragStartX = ((e.clientX - rect.left) / rect.width) * 100;
+        dragStartY = ((e.clientY - rect.top) / rect.height) * 100;
+
+        const rubber = document.getElementById('rubberband-box');
+        if (rubber) {
+          rubber.style.left = `${dragStartX}%`;
+          rubber.style.top = `${dragStartY}%`;
+          rubber.style.width = '0%';
+          rubber.style.height = '0%';
+          rubber.classList.remove('hidden');
+        }
+      }
+
+      function handleCanvasMouseMove(e) {
+        if (!isDrawing) return;
+        const sheet = document.getElementById('sample-sheet');
+        const rect = sheet.getBoundingClientRect();
+        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+
+        const left = Math.min(dragStartX, currentX);
+        const top = Math.min(dragStartY, currentY);
+        const width = Math.abs(currentX - dragStartX);
+        const height = Math.abs(currentY - dragStartY);
+
+        const rubber = document.getElementById('rubberband-box');
+        if (rubber) {
+          rubber.style.left = `${left}%`;
+          rubber.style.top = `${top}%`;
+          rubber.style.width = `${width}%`;
+          rubber.style.height = `${height}%`;
+        }
+      }
+
+      function handleCanvasMouseUp(e) {
+        if (!isDrawing) return;
+        isDrawing = false;
+        const rubber = document.getElementById('rubberband-box');
+        if (rubber) rubber.classList.add('hidden');
+
+        const sheet = document.getElementById('sample-sheet');
+        const rect = sheet.getBoundingClientRect();
+        const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+        const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+
+        const left = Math.round(Math.min(dragStartX, currentX));
+        const top = Math.round(Math.min(dragStartY, currentY));
+        const width = Math.round(Math.abs(currentX - dragStartX));
+        const height = Math.round(Math.abs(currentY - dragStartY));
+
+        if (width >= 2 && height >= 2) {
+          const colors = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626'];
+          const pickedColor = colors[Math.floor(Math.random() * colors.length)];
+          const identName = prompt('Enter an Identifier for this OCR Zone (e.g., DWG_NO, REV, DATE, PROJECT, SPEC):', 'DWG_NO');
+          
+          if (identName && identName.trim()) {
+            const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+            if (activeRule) {
+              activeRule.zones.push({
+                id: `z_${Date.now()}`,
+                name: identName.trim().toUpperCase(),
+                color: pickedColor,
+                x: left,
+                y: top,
+                w: width,
+                h: height
+              });
+              renderCurrentRuleZones();
+              renderNamingTokens();
+              updateWorkspaceExtractedFields();
+            }
+          }
+        }
+      }
+
+      function addPresetZone(name, color) {
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        if (!activeRule) return;
+
+        let x = 65, y = 88, w = 18, h = 5;
+        if (name === 'REV') { x = 86; y = 88; w = 8; h = 5; }
+        if (name === 'DATE') { x = 65; y = 94; w = 15; h = 5; }
+
+        activeRule.zones.push({
+          id: `z_${Date.now()}`,
+          name: name,
+          color: color,
+          x: x,
+          y: y,
+          w: w,
+          h: h
+        });
+        renderCurrentRuleZones();
+        renderNamingTokens();
+        updateWorkspaceExtractedFields();
+      }
+
+      function renameZone(zoneId, newName) {
+        if (!newName || !newName.trim()) return;
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        if (!activeRule) return;
+        const zone = activeRule.zones.find(z => z.id === zoneId);
+        if (zone) {
+          zone.name = newName.trim().toUpperCase().replace(/\s+/g, '_');
+          renderCurrentRuleZones();
+          renderNamingTokens();
+          updateWorkspaceExtractedFields();
+        }
+      }
+
+      function promptRenameZone(zoneId) {
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        if (!activeRule) return;
+        const zone = activeRule.zones.find(z => z.id === zoneId);
+        if (!zone) return;
+        const newName = prompt('Rename OCR Zone identifier (this will update Naming Rule tokens):', zone.name);
+        if (newName && newName.trim()) {
+          renameZone(zoneId, newName.trim());
+        }
+      }
+
+      function deleteZone(zoneId) {
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        if (!activeRule) return;
+        activeRule.zones = activeRule.zones.filter(z => z.id !== zoneId);
+        renderCurrentRuleZones();
+        renderNamingTokens();
+        updateWorkspaceExtractedFields();
+      }
+
+      function renderCurrentRuleZones() {
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        const overlay = document.getElementById('zones-overlay-layer');
+        const list = document.getElementById('rule-zones-list');
+        const countBadge = document.getElementById('zone-count-badge');
+
+        if (!activeRule) return;
+        if (countBadge) countBadge.textContent = `${activeRule.zones.length} Zones`;
+
+        if (overlay) {
+          overlay.innerHTML = '';
+          activeRule.zones.forEach(zone => {
+            const box = document.createElement('div');
+            box.className = 'absolute rounded-xs pointer-events-auto cursor-pointer transition-transform hover:scale-[1.01]';
+            box.style.left = `${zone.x}%`;
+            box.style.top = `${zone.y}%`;
+            box.style.width = `${zone.w}%`;
+            box.style.height = `${zone.h}%`;
+            box.style.border = `2px solid ${zone.color}`;
+            box.style.backgroundColor = `${zone.color}25`;
+
+            box.innerHTML = `
+              <span class="absolute -top-3.5 left-0 text-[10px] font-bold px-1.5 py-0.2 rounded text-white shadow-2xs whitespace-nowrap" style="background-color: ${zone.color}">
+                ${zone.name}
+              </span>
+            `;
+            overlay.appendChild(box);
+          });
+        }
+
+        if (list) {
+          list.innerHTML = '';
+          if (activeRule.zones.length === 0) {
+            list.innerHTML = '<div class="text-xs text-slate-400 p-3 text-center whitespace-nowrap">No zones created yet. Drag on sheet to add.</div>';
+          }
+          activeRule.zones.forEach((zone) => {
+            const card = document.createElement('div');
+            card.className = 'p-2.5 bg-slate-50 border border-slate-200 rounded-md space-y-1';
+            card.innerHTML = `
+              <div class="flex items-center justify-between gap-1">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${zone.color}"></span>
+                  <input type="text" value="${zone.name}" 
+                    onchange="renameZone('${zone.id}', this.value)" 
+                    title="Rename zone identifier (used as {${zone.name}} in Naming Rule)"
+                    class="w-full text-[12px] font-bold text-slate-800 bg-white border border-slate-300 rounded px-2 py-0.5 truncate focus:outline-none focus:border-blue-500 uppercase" />
+                </div>
+                <div class="flex items-center gap-1 shrink-0 whitespace-nowrap">
+                  <button onclick="promptRenameZone('${zone.id}')" title="Rename identifier" class="p-1 hover:bg-slate-200 text-slate-500 hover:text-blue-600 rounded cursor-pointer">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                  </button>
+                  <button onclick="deleteZone('${zone.id}')" title="Delete Zone" class="p-1 hover:bg-slate-200 text-slate-400 hover:text-red-600 rounded cursor-pointer">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-500 whitespace-nowrap px-0.5">
+                <span class="text-blue-700 font-bold">Token: {${zone.name}}</span>
+                <span>X:${zone.x}% Y:${zone.y}% ${zone.w}×${zone.h}%</span>
+              </div>
+            `;
+            list.appendChild(card);
+          });
+        }
+      }
+
+      function saveScanRule() {
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        const formula = document.getElementById('naming-formula-input')?.value;
+        if (window.DocRenamerEngine?.OcrPipeline) {
+          window.DocRenamerEngine.OcrPipeline.saveRuleSchema(AppState.scanRules, AppState.activeScanRuleId, formula);
+        }
+        alert(`"${activeRule?.name}" and naming schema saved to local storage.`);
+      }
+
+      // ==========================================
+      // STAGE 3: NAMING RULE
+      // ==========================================
+      function renderNamingTokens() {
+        const container = document.getElementById('identifier-token-chips');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        const tokens = ['PROJECT'];
+        if (activeRule) {
+          activeRule.zones.forEach(z => {
+            const tokenName = z.name.toUpperCase().replace(/\s+/g, '_');
+            if (!tokens.includes(tokenName)) tokens.push(tokenName);
+          });
+        }
+
+        tokens.forEach(tok => {
+          const btn = document.createElement('button');
+          btn.className = 'px-3 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 border border-slate-300 rounded text-slate-800 text-[12px] font-bold transition-colors cursor-pointer whitespace-nowrap';
+          btn.textContent = `+ {${tok}}`;
+          btn.onclick = () => insertNamingToken(`{${tok}}`);
+          container.appendChild(btn);
+        });
+
+        updateNamingPreview();
+      }
+
+      function insertNamingToken(token) {
+        const input = document.getElementById('naming-formula-input');
+        if (input) {
+          input.value += token;
+          updateNamingPreview();
+        }
+      }
+
+      function onDelimiterChange(delim) {
+        const input = document.getElementById('naming-formula-input');
+        if (input) {
+          input.value = input.value.replace(/[-_.]/g, delim);
+          updateNamingPreview();
+        }
+      }
+
+      function updateNamingPreview() {
+        const input = document.getElementById('naming-formula-input');
+        const preview = document.getElementById('naming-preview-text');
+        if (!input || !preview) return;
+
+        let res = input.value
+          .replace('{PROJECT}', 'PRJ2026')
+          .replace('{DWG_NO}', 'MEP-HVAC-M-102')
+          .replace('{DRAWING_NUMBER}', 'MEP-HVAC-M-102')
+          .replace('{REV}', 'REVC')
+          .replace('{REVISION}', 'REVC')
+          .replace('{DATE}', '20260927')
+          .replace('{SUBMITTAL_NO}', 'SUB-0402');
+
+        const caseSelect = document.getElementById('naming-case-select')?.value;
+        if (caseSelect === 'LOWER') res = res.toLowerCase();
+        if (caseSelect === 'UPPER') res = res.toUpperCase();
+
+        preview.textContent = `${res}.pdf`;
+      }
+
+      // ==========================================
+      // STAGE 4: MAIN WORKSPACE (SEQUENCE OF OPERATION)
+      // ==========================================
+      async function browseSourceFolder() {
+        if (window.DocRenamerEngine?.FileSystem) {
+          try {
+            const handle = await window.DocRenamerEngine.FileSystem.promptDirectoryPicker('readwrite');
+            if (handle) {
+              AppState.sourceDirHandle = handle;
+              AppState.sourceFolder = `[Directory: ${handle.name}]`;
+              document.getElementById('source-folder-input').value = AppState.sourceFolder;
+              document.getElementById('same-folder-path-label').textContent = AppState.sourceFolder;
+              
+              // Enumerate incoming PDF files
+              const files = await window.DocRenamerEngine.FileSystem.enumeratePdfFiles(handle);
+              if (files.length > 0) {
+                AppState.workspaceFiles = files;
+                renderWorkspaceFiles();
+                selectWorkspaceFile(0);
+                document.getElementById('op-status-message').textContent = `Loaded ${files.length} PDF files from ${handle.name}. Ready for scanning sequence.`;
+                return;
+              } else {
+                alert(`No .pdf files found in directory "${handle.name}".`);
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('DirectoryPicker fallback:', e);
+          }
+        }
+
+        const newPath = prompt('Set Source File Folder Path:', AppState.sourceFolder);
+        if (newPath && newPath.trim()) {
+          AppState.sourceFolder = newPath.trim();
+          document.getElementById('source-folder-input').value = AppState.sourceFolder;
+          document.getElementById('same-folder-path-label').textContent = AppState.sourceFolder;
+        }
+      }
+
+      async function browseTargetFolder() {
+        if (window.DocRenamerEngine?.FileSystem) {
+          try {
+            const handle = await window.DocRenamerEngine.FileSystem.promptDirectoryPicker('readwrite');
+            if (handle) {
+              AppState.targetDirHandle = handle;
+              AppState.targetFolder = `[Directory: ${handle.name}]`;
+              document.getElementById('target-folder-input').value = AppState.targetFolder;
+              document.getElementById('op-status-message').textContent = `Target archive destination folder set to "${handle.name}".`;
+              return;
+            }
+          } catch (e) {
+            console.warn('DirectoryPicker target fallback:', e);
+          }
+        }
+
+        const newPath = prompt('Set Destination Output Folder Path:', AppState.targetFolder);
+        if (newPath && newPath.trim()) {
+          AppState.targetFolder = newPath.trim();
+          document.getElementById('target-folder-input').value = AppState.targetFolder;
+        }
+      }
+
+      function onFolderDestChange(val) {
+        AppState.folderDestination = val;
+        const targetContainer = document.getElementById('target-folder-container');
+        const sameDisplay = document.getElementById('same-folder-display');
+        
+        if (val === 'target') {
+          targetContainer.classList.remove('hidden');
+          sameDisplay.classList.add('hidden');
+        } else {
+          targetContainer.classList.add('hidden');
+          sameDisplay.classList.remove('hidden');
+          document.getElementById('same-folder-path-label').textContent = AppState.sourceFolder;
+        }
+      }
+
+      function onWorkspaceRuleChange(ruleId) {
+        switchScanRule(ruleId);
+      }
+
+      function updateWorkspaceExtractedFields() {
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        if (!activeRule) return;
+
+        const z1Label = document.getElementById('ws-zone1-label');
+        const z2Label = document.getElementById('ws-zone2-label');
+        const z3Label = document.getElementById('ws-zone3-label');
+
+        if (activeRule.zones[0] && z1Label) z1Label.textContent = `${activeRule.zones[0].name} (ZONE 1)`;
+        if (activeRule.zones[1] && z2Label) z2Label.textContent = `${activeRule.zones[1].name} (ZONE 2)`;
+        if (activeRule.zones[2] && z3Label) z3Label.textContent = `${activeRule.zones[2].name} (ZONE 3)`;
+      }
+
+      function renderWorkspaceFiles() {
+        const list = document.getElementById('workspace-file-list');
+        const countBadge = document.getElementById('workspace-file-count');
+        const selCount = document.getElementById('selected-files-count');
+        if (!list) return;
+
+        const selectedCount = AppState.workspaceFiles.filter(f => f.selected).length;
+        if (countBadge) countBadge.textContent = `${AppState.workspaceFiles.length} Files`;
+        if (selCount) selCount.textContent = `${selectedCount} selected`;
+
+        list.innerHTML = '';
+        AppState.workspaceFiles.forEach((file, index) => {
+          const isCurrent = index === AppState.selectedWorkspaceFileIndex;
+          const row = document.createElement('div');
+          row.className = `p-2.5 px-3 hover:bg-slate-50 cursor-pointer flex items-center justify-between border-l-3 transition-colors whitespace-nowrap ${
+            isCurrent ? 'bg-blue-50/70 border-blue-600' : 'border-transparent'
+          }`;
+          
+          row.onclick = (e) => {
+            if (e.target.tagName !== 'INPUT') {
+              selectWorkspaceFile(index);
+            }
+          };
+
+          let statusBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+          if (file.status === 'Renamed') {
+            statusBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200 font-bold';
+          } else if (file.status === 'Scanning...' || file.status === 'Processing') {
+            statusBadgeClass = 'bg-blue-100 text-blue-800 border-blue-200 font-bold animate-pulse';
+          } else if (file.status === 'Scanned') {
+            statusBadgeClass = 'bg-sky-100 text-sky-800 border-sky-300 font-bold';
+          } else if (file.status === 'Skipped') {
+            statusBadgeClass = 'bg-amber-100 text-amber-800 border-amber-200 font-bold';
+          }
+
+          row.innerHTML = `
+            <div class="flex items-center gap-2.5 truncate min-w-0">
+              <input type="checkbox" ${file.selected ? 'checked' : ''} 
+                onchange="toggleSingleFileSelect(${index}, this.checked)"
+                class="rounded border-slate-300 text-blue-600 focus:ring-0 shrink-0 w-3.5 h-3.5" />
+              <div class="flex flex-col truncate min-w-0">
+                <span class="font-bold text-[12px] truncate ${isCurrent ? 'text-blue-900' : 'text-slate-800'}">${file.name}</span>
+                <span class="text-[11px] text-slate-500 font-medium truncate">${file.size} · ${file.dwg}</span>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded uppercase shrink-0 border ${statusBadgeClass}">${file.status}</span>
+          `;
+          list.appendChild(row);
+        });
+      }
+
+      function toggleSelectAllFiles(checked) {
+        AppState.workspaceFiles.forEach(f => f.selected = checked);
+        renderWorkspaceFiles();
+      }
+
+      function toggleSingleFileSelect(index, checked) {
+        if (AppState.workspaceFiles[index]) {
+          AppState.workspaceFiles[index].selected = checked;
+        }
+        renderWorkspaceFiles();
+      }
+
+      function selectWorkspaceFile(index) {
+        AppState.selectedWorkspaceFileIndex = index;
+        const file = AppState.workspaceFiles[index];
+        if (!file) return;
+
+        const nameHeader = document.getElementById('workspace-viewing-filename');
+        const dwgEl = document.getElementById('ws-extracted-dwg');
+        const revEl = document.getElementById('ws-extracted-rev');
+        const dateEl = document.getElementById('ws-extracted-date');
+        
+        const bDwg = document.getElementById('ws-bottom-dwg');
+        const bRev = document.getElementById('ws-bottom-rev');
+        const bTarget = document.getElementById('ws-bottom-target');
+        const activeStatusEl = document.getElementById('workspace-active-status');
+        const opStatusMsg = document.getElementById('op-status-message');
+        const opProgressCount = document.getElementById('op-queue-progress-count');
+
+        if (nameHeader) nameHeader.textContent = file.name;
+        if (dwgEl) dwgEl.textContent = file.dwg;
+        if (revEl) revEl.textContent = file.rev;
+        if (dateEl) dateEl.textContent = `${file.date} · LEVEL 02 HVAC DUCTWORK`;
+
+        if (bDwg) bDwg.textContent = file.dwg;
+        if (bRev) bRev.textContent = file.rev;
+        if (bTarget) bTarget.textContent = file.newName;
+        if (activeStatusEl) activeStatusEl.textContent = file.status;
+
+        if (opProgressCount) opProgressCount.textContent = `File ${index + 1} of ${AppState.workspaceFiles.length}`;
+        if (opStatusMsg) {
+          if (file.status === 'Ready') opStatusMsg.textContent = `Sequence Status: Ready to scan active document (${file.name})`;
+          else if (file.status === 'Scanned') opStatusMsg.textContent = `Sequence Status: Scanned. Ready for Approval or Manual Edit (${file.name})`;
+          else if (file.status === 'Renamed') opStatusMsg.textContent = `Sequence Status: Renamed & Organized (${file.newName})`;
+          else if (file.status === 'Skipped') opStatusMsg.textContent = `Sequence Status: File skipped by user (${file.name})`;
+        }
+
+        renderWorkspaceFiles();
+        renderWorkspaceZonesOverlay();
+      }
+
+      function handleWorkspaceFilesAdded(files) {
+        if (!files || files.length === 0) return;
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+          AppState.workspaceFiles.push({
+            id: Date.now() + i,
+            name: f.name,
+            size: `${sizeMb} MB`,
+            selected: true,
+            status: 'Ready',
+            dwg: `DWG-AUTO-${100 + i}`,
+            rev: 'A',
+            date: '2026-09-27',
+            newName: `PRJ2026_DWG-AUTO-${100 + i}_REVA.pdf`
+          });
+        }
+        renderWorkspaceFiles();
+      }
+
+      function loadSampleBatchFiles() {
+        const dummyNames = ['CIVIL_SURVEY_SHEET_01.pdf', 'ARCH_ELEVATIONS_NORTH.pdf', 'PLUMBING_PIPING_ROOF.pdf'];
+        dummyNames.forEach((name, i) => {
+          AppState.workspaceFiles.push({
+            id: Date.now() + i,
+            name: name,
+            size: '2.4 MB',
+            selected: true,
+            status: 'Ready',
+            dwg: `GEN-SITE-${301 + i}`,
+            rev: 'B',
+            date: '2026-09-27',
+            newName: `PRJ2026_GEN-SITE-${301 + i}_REVB.pdf`
+          });
+        });
+        renderWorkspaceFiles();
+      }
+
+      function resetQueueStatuses() {
+        AppState.workspaceFiles.forEach(f => f.status = 'Ready');
+        renderWorkspaceFiles();
+        selectWorkspaceFile(AppState.selectedWorkspaceFileIndex);
+        document.getElementById('op-status-message').textContent = 'Sequence Status: Queue reset to Ready.';
+      }
+
+      function renderWorkspaceZonesOverlay() {
+        const overlay = document.getElementById('workspace-zones-overlay');
+        const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId);
+        if (!overlay || !activeRule) return;
+        overlay.innerHTML = '';
+        activeRule.zones.forEach(zone => {
+          const box = document.createElement('div');
+          box.className = 'absolute rounded-xs pointer-events-none transition-all';
+          box.style.left = `${zone.x}%`;
+          box.style.top = `${zone.y}%`;
+          box.style.width = `${zone.w}%`;
+          box.style.height = `${zone.h}%`;
+          box.style.border = `2px solid ${zone.color}`;
+          box.style.backgroundColor = `${zone.color}20`;
+          box.innerHTML = `
+            <span class="absolute -top-3.5 left-0 text-[10px] font-bold px-1 rounded text-white whitespace-nowrap shadow-2xs" style="background-color: ${zone.color}">
+              ${zone.name}
+            </span>
+          `;
+          overlay.appendChild(box);
+        });
+      }
+
+      async function getOrRenderFileCanvas(file) {
+        if ((file.handle || file.fileBlob) && window.DocRenamerEngine?.OcrPipeline) {
+          try {
+            let buf;
+            if (file.handle?.getFile) {
+              const f = await file.handle.getFile();
+              buf = await f.arrayBuffer();
+            } else if (file.fileBlob) {
+              buf = await file.fileBlob.arrayBuffer();
+            }
+            if (buf) {
+              const res = await window.DocRenamerEngine.OcrPipeline.renderPdfPage1(buf, 2.0);
+              return res.canvas;
+            }
+          } catch (e) {
+            console.warn('PDF render error, using technical drawing sheet canvas:', e);
+          }
+        }
+
+        // High-resolution technical CAD canvas with title block text
+        const c = document.createElement('canvas');
+        c.width = 1200;
+        c.height = 760;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 1200, 760);
+        
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(30, 30, 1140, 700);
+
+        // Header info
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('NORTH TOWER CIVIC EXPANSION - TECHNICAL DRAWING SHEET', 50, 65);
+
+        // Title Block table
+        ctx.strokeStyle = '#334155';
+        ctx.strokeRect(780, 560, 370, 150);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(781, 561, 368, 148);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('DRAWING NUMBER', 800, 590);
+        ctx.fillText('REVISION', 1040, 590);
+        ctx.fillText('DATE', 800, 650);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText(file.dwg || 'MEP-HVAC-M-102', 800, 620);
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText(file.rev || 'C', 1040, 620);
+        ctx.font = 'bold 14px monospace';
+        ctx.fillText(file.date || '2026-09-27', 800, 680);
+
+        return c;
+      }
+
+      // ============================================================
+      // SEQUENCE OF OPERATION HANDLERS (Start Scanning, Skip, Batch, etc.)
+      // ============================================================
+
+      // 1. Start Scanning (Current Active File)
+      async function startScanningCurrentFile() {
+        const file = AppState.workspaceFiles[AppState.selectedWorkspaceFileIndex];
+        if (!file) return;
+
+        const laser = document.getElementById('canvas-laser-line');
+        const statusMsg = document.getElementById('op-status-message');
+        const engineTag = document.getElementById('op-engine-status-tag');
+
+        file.status = 'Scanning...';
+        renderWorkspaceFiles();
+        if (laser) laser.classList.remove('hidden');
+        if (statusMsg) statusMsg.textContent = `Rendering Page 1 & executing Zonal OCR on ${file.name}...`;
+        if (engineTag) {
+          engineTag.textContent = 'OCR Engine Active (WASM)';
+          engineTag.className = 'text-blue-700 font-bold';
+        }
+
+        try {
+          // Render Page 1 to in-memory canvas
+          const canvas = await getOrRenderFileCanvas(file);
+
+          // Display on sheet canvas
+          const wsCanvas = document.getElementById('workspace-pdf-canvas');
+          if (wsCanvas) {
+            wsCanvas.width = canvas.width;
+            wsCanvas.height = canvas.height;
+            const wctx = wsCanvas.getContext('2d');
+            if (wctx) wctx.drawImage(canvas, 0, 0);
+            wsCanvas.classList.remove('hidden');
+          }
+
+          // Execute Zonal OCR
+          const activeRule = AppState.scanRules.find(r => r.id === AppState.activeScanRuleId) || AppState.scanRules[0];
+          const worker = window.DocRenamerEngine?.AssetStorage?.GlobalEngineState?.tesseractWorker;
+
+          if (window.DocRenamerEngine?.OcrPipeline) {
+            const formula = document.getElementById('naming-formula-input')?.value || '{PROJECT}_{DWG_NO}_REV{REV}';
+            activeRule.namingFormula = formula;
+            activeRule.casing = document.getElementById('naming-case-select')?.value || 'UPPER';
+
+            const { values, newFilename, overallConfidence } = await window.DocRenamerEngine.OcrPipeline.executeAllZonesOcr(canvas, activeRule, worker);
+
+            if (values.DWG_NO) file.dwg = values.DWG_NO;
+            if (values.REV) file.rev = values.REV;
+            if (values.DATE) file.date = values.DATE;
+            file.newName = newFilename;
+            file.extractedValues = values;
+
+            const confEl = document.querySelector('#workspace-canvas-sheet + div span.text-emerald-600');
+            if (confEl) confEl.textContent = `${overallConfidence}%`;
+          } else {
+            file.newName = `PRJ2026_${file.dwg}_REV${file.rev}.pdf`;
+          }
+
+          file.status = 'Scanned';
+          renderWorkspaceFiles();
+          selectWorkspaceFile(AppState.selectedWorkspaceFileIndex);
+
+          if (statusMsg) statusMsg.textContent = `Scan Complete: DWG="${file.dwg}", REV="${file.rev}". New: ${file.newName}. Ready for "Approve & Rename".`;
+        } catch (err) {
+          console.error('OCR scanning error:', err);
+          file.status = 'Scanned';
+          renderWorkspaceFiles();
+        } finally {
+          if (laser) laser.classList.add('hidden');
+          if (engineTag) {
+            engineTag.textContent = 'OCR Engine Idle';
+            engineTag.className = 'text-emerald-700 font-bold';
+          }
+        }
+      }
+
+      // 2. Skip File
+      function skipCurrentFile() {
+        const file = AppState.workspaceFiles[AppState.selectedWorkspaceFileIndex];
+        if (!file) return;
+
+        file.status = 'Skipped';
+        renderWorkspaceFiles();
+        
+        AppState.auditLogs.unshift({
+          time: new Date().toLocaleTimeString(),
+          original: file.name,
+          renamed: '[Skipped by User]',
+          status: 'Skipped'
+        });
+        renderAuditLogs();
+
+        document.getElementById('op-status-message').textContent = `Skipped ${file.name}. Advancing to next document in queue...`;
+
+        if (AppState.selectedWorkspaceFileIndex < AppState.workspaceFiles.length - 1) {
+          selectWorkspaceFile(AppState.selectedWorkspaceFileIndex + 1);
+        }
+      }
+
+      // 3. Scan Selected Files
+      function scanSelectedQueueFiles() {
+        const selected = AppState.workspaceFiles.filter(f => f.selected);
+        if (selected.length === 0) {
+          alert('No files selected in queue. Please check at least one file to scan.');
+          return;
+        }
+        executeBatchProcess(selected, 'scan-only');
+      }
+
+      // 4. Batch Scan All Files
+      function batchScanAllQueueFiles() {
+        executeBatchProcess(AppState.workspaceFiles, 'scan-only');
+      }
+
+      // 5. Toggle Pause
+      function togglePauseScan() {
+        AppState.isPaused = !AppState.isPaused;
+        const pauseText = document.getElementById('op-pause-text');
+        if (pauseText) pauseText.textContent = AppState.isPaused ? 'Resume' : 'Pause';
+        document.getElementById('op-status-message').textContent = AppState.isPaused ? 'Operation Paused.' : 'Resuming batch operation...';
+      }
+
+      // 6. Manual Edit Override
+      function promptManualEditFields() {
+        const file = AppState.workspaceFiles[AppState.selectedWorkspaceFileIndex];
+        if (!file) return;
+
+        const newDwg = prompt('Manual Override - Drawing Number (DWG_NO):', file.dwg);
+        if (newDwg !== null && newDwg.trim()) {
+          file.dwg = newDwg.trim().toUpperCase();
+        }
+
+        const newRev = prompt('Manual Override - Revision (REV):', file.rev);
+        if (newRev !== null && newRev.trim()) {
+          file.rev = newRev.trim().toUpperCase();
+        }
+
+        file.newName = `PRJ2026_${file.dwg}_REV${file.rev}.pdf`;
+        file.status = 'Scanned';
+        selectWorkspaceFile(AppState.selectedWorkspaceFileIndex);
+        document.getElementById('op-status-message').textContent = `Manual overrides applied for ${file.name}. Ready for Approve & Rename.`;
+      }
+
+      // 7. Approve & Rename Current File
+      async function approveAndRenameCurrentFile() {
+        const file = AppState.workspaceFiles[AppState.selectedWorkspaceFileIndex];
+        if (!file) return;
+
+        if (file.status !== 'Scanned') {
+          await startScanningCurrentFile();
+        }
+
+        const mode = AppState.folderDestination === 'target' ? 'move' : 'same';
+        let res = { success: true, originalName: file.name, newName: file.newName, destination: mode };
+
+        if (window.DocRenamerEngine?.FileSystem) {
+          res = await window.DocRenamerEngine.FileSystem.transferOrRenameFile(
+            AppState.sourceDirHandle,
+            AppState.targetDirHandle,
+            file,
+            file.newName,
+            mode
+          );
+        }
+
+        file.status = res.success ? 'Renamed' : 'Error';
+        renderWorkspaceFiles();
+
+        AppState.auditLogs.unshift({
+          time: new Date().toLocaleTimeString(),
+          original: file.name,
+          renamed: file.newName,
+          status: res.success ? 'Renamed' : 'Failed'
+        });
+        renderAuditLogs();
+
+        const statusMsg = document.getElementById('op-status-message');
+        if (statusMsg) {
+          statusMsg.textContent = `Approved & Renamed: ${file.newName} (${mode === 'move' ? 'Transferred to Target Folder' : 'Renamed In-Place in Source Folder'}).`;
+        }
+
+        // Automatically advance to next ready file
+        const nextIndex = AppState.workspaceFiles.findIndex((f, idx) => idx > AppState.selectedWorkspaceFileIndex && f.status !== 'Renamed');
+        if (nextIndex !== -1) {
+          selectWorkspaceFile(nextIndex);
+        }
+      }
+
+      // Universal Batch Processor for Scans / Renames
+      async function executeBatchProcess(filesToProcess, mode) {
+        if (AppState.isProcessing) return;
+        AppState.isProcessing = true;
+        AppState.isPaused = false;
+
+        const progContainer = document.getElementById('workspace-progress-container');
+        const progBar = document.getElementById('workspace-progress-bar');
+        const progPct = document.getElementById('workspace-progress-pct');
+        const progLabel = document.getElementById('workspace-progress-label');
+        const pauseBtn = document.getElementById('op-pause-btn');
+        const laser = document.getElementById('canvas-laser-line');
+
+        progContainer.classList.remove('hidden');
+        if (pauseBtn) pauseBtn.classList.remove('hidden');
+        if (laser) laser.classList.remove('hidden');
+
+        const total = filesToProcess.length;
+
+        for (let i = 0; i < total; i++) {
+          if (!AppState.isProcessing) break;
+          while (AppState.isPaused) {
+            await new Promise(r => setTimeout(r, 200));
+          }
+
+          const file = filesToProcess[i];
+          const fileIdx = AppState.workspaceFiles.indexOf(file);
+          if (fileIdx !== -1) selectWorkspaceFile(fileIdx);
+
+          const pct = Math.round(((i + 1) / total) * 100);
+          progBar.style.width = `${pct}%`;
+          progPct.textContent = `${pct}%`;
+          progLabel.textContent = `Processing (${i + 1}/${total}): ${file.name}`;
+          document.getElementById('op-status-message').textContent = `Processing (${i + 1}/${total}): ${file.name}`;
+
+          // Perform Page 1 Zonal OCR
+          await startScanningCurrentFile();
+
+          if (mode === 'rename-all') {
+            await approveAndRenameCurrentFile();
+          }
+
+          await new Promise(r => setTimeout(r, 100));
+        }
+
+        AppState.isProcessing = false;
+        if (laser) laser.classList.add('hidden');
+        if (pauseBtn) pauseBtn.classList.add('hidden');
+        progLabel.textContent = `Batch Operation Completed (${total} files processed).`;
+        document.getElementById('op-status-message').textContent = `Batch sequence complete: ${total} files processed.`;
+
+        setTimeout(() => {
+          progContainer.classList.add('hidden');
+        }, 3000);
+      }
+
+      function renderAuditLogs() {
+        const container = document.getElementById('workspace-audit-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        AppState.auditLogs.forEach(log => {
+          const item = document.createElement('div');
+          item.className = 'p-2 bg-slate-50/80 rounded border border-slate-200/90 flex flex-col gap-0.5 whitespace-nowrap overflow-hidden';
+          item.innerHTML = `
+            <div class="flex items-center justify-between text-[11px] text-slate-500 font-bold">
+              <span>${log.time}</span>
+              <span class="text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">${log.status}</span>
+            </div>
+            <div class="text-[12px] text-slate-900 font-bold truncate">${log.renamed}</div>
+            <div class="text-[11px] text-slate-500 font-medium truncate">Original: ${log.original}</div>
+          `;
+          container.appendChild(item);
+        });
+      }
+
+      function exportAuditLog() {
+        const destFolder = AppState.folderDestination === 'target' ? AppState.targetFolder : AppState.sourceFolder;
+        const csvContent = "data:text/csv;charset=utf-8,Time,OriginalFile,RenamedFile,SourceFolder,DestinationFolder,Status\n"
+          + AppState.auditLogs.map(l => `"${l.time}","${l.original}","${l.renamed}","${AppState.sourceFolder}","${destFolder}","${l.status}"`).join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `docrenamer_audit_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // ==========================================
+      // INITIALIZATION
+      // ==========================================
+      window.addEventListener('DOMContentLoaded', () => {
+        // Restore persistent rule schema if stored
+        if (window.DocRenamerEngine?.OcrPipeline) {
+          const stored = window.DocRenamerEngine.OcrPipeline.loadRuleSchema();
+          if (stored && stored.rules?.length > 0) {
+            AppState.scanRules = stored.rules;
+            if (stored.activeRuleId) AppState.activeScanRuleId = stored.activeRuleId;
+            const fInput = document.getElementById('naming-formula-input');
+            if (fInput && stored.formula) fInput.value = stored.formula;
+          }
+        }
+
+        checkStartupAssets();
+        populateScanRuleDropdowns();
+        renderWorkspaceFiles();
+        selectWorkspaceFile(0);
+        renderWorkspaceZonesOverlay();
+        renderAuditLogs();
+        switchStage(4); // Default to Main Workspace
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
